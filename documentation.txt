@@ -1,0 +1,245 @@
+================================================================================
+  SolidStateCore — Documentation
+================================================================================
+
+1. OVERVIEW
+--------------------------------------------------------------------------------
+SolidStateCore is a desktop application for interactive condensed-matter physics
+simulations.  It combines a self-contained physics engine (SolidStatePhysics
+library) with an ImGui/ImPlot graphical frontend that lets users explore 50
+classic topics from an undergraduate-to-graduate solid-state physics curriculum.
+
+The project is written in C++17 and built with CMake (>= 3.15).  All third-party
+GUI dependencies (GLFW 3.4, Dear ImGui 1.91.8, ImPlot 0.16) are fetched
+automatically at configure time via CMake FetchContent.  The Eigen linear algebra
+library is bundled in the repository.
+
+
+2. PROJECT STRUCTURE
+--------------------------------------------------------------------------------
+
+  File / Directory            Purpose
+  ─────────────────────────── ──────────────────────────────────────────────────
+  CMakeLists.txt              Top-level build script.  Defines two targets:
+                                • SolidStatePhysics  (static lib, no GUI)
+                                • SolidStateCore     (GUI executable)
+
+  main.cpp                    Entry point.  Creates a GuiApp, initialises the
+                              GLFW/OpenGL window, and enters the render loop.
+
+  GuiApp.h / GuiApp.cpp       ImGui application class.  Contains:
+                                • init()  — window & context creation
+                                • run()   — main loop with sidebar + panel
+                                • shutdown()
+                                • 50 renderSimXX_*() methods, one per topic
+
+  SolidStateSystem.h / .cpp   Core physics engine.  Provides:
+                                • Static helper functions (no state needed)
+                                • Instance methods (material name, lattice
+                                  constant, effective mass)
+                                • CSV export methods for every simulation
+
+  SolidStateConstants.h       Namespace SSConst with CODATA 2018 physical
+                              constants in SI units, plus derived values
+                              (eV, Angstrom, Bohr radius, Rydberg, etc.) and
+                              reference semiconductor parameters.
+
+  NumericalSolverSS.h / .cpp  Numerical methods used by the physics engine:
+                                • Finite-difference band solver (FDM)
+                                • Crank-Nicolson time evolution
+                                • Gaussian wavepacket generation
+                                • Self-consistent Poisson-Schrodinger solver
+                                • Transfer matrix method (TMM)
+                                • Monte Carlo integration
+
+  solidstate_c_api.h / .cpp   Plain-C wrapper around a subset of the engine.
+                              Designed for FFI bindings (Python ctypes, C#
+                              P/Invoke, etc.).
+
+  pch.h                       Precompiled header used under MSVC builds.
+
+  Eigen/                      Bundled Eigen 3.x headers for matrix operations
+                              (eigenvalue solvers, linear systems, etc.).
+
+
+3. SIMULATION CATALOGUE
+--------------------------------------------------------------------------------
+
+  #   Category                     Title
+  ──  ───────────────────────────  ───────────────────────────────────────────
+   1  Crystal Structure            Bravais Lattices
+   2  Crystal Structure            Reciprocal Lattice
+   3  Crystal Structure            X-Ray Diffraction (Bragg)
+   4  Lattice Dynamics             Monatomic Lattice Vibrations
+   5  Lattice Dynamics             Diatomic Lattice Vibrations
+   6  Lattice Dynamics             Debye Model (specific heat)
+   7  Lattice Dynamics             Einstein Model (specific heat)
+   8  Lattice Dynamics             Phonon Density of States
+   9  Thermal Properties           Thermal Expansion (Gruneisen)
+  10  Thermal Properties           Lattice Thermal Conductivity
+  11  Electronic Structure         Free Electron Model
+  12  Electronic Structure         Nearly Free Electron Model
+  13  Electronic Structure         Tight-Binding (Extended)
+  14  Electronic Structure         Kronig-Penney (Extended)
+  15  Electronic Structure         APW / OPW Methods
+  16  Electronic Structure         DOS & Fermi Surface
+  17  Electronic Structure         Effective Mass & k.p Theory
+  18  Electronic Structure         Pseudopotential Method
+  19  Electronic Structure         Wannier Functions
+  20  Electronic Structure         Band Structure Visualization
+  21  Semiconductors               Intrinsic Semiconductors
+  22  Semiconductors               Extrinsic Semiconductors
+  23  Semiconductors               p-n Junction
+  24  Semiconductors               Semiconductor Optics
+  25  Semiconductors               Quantum Wells & Heterostructures
+  26  Transport                    Hall Effect & Magnetoresistance
+  27  Transport                    Boltzmann Transport (Drude)
+  28  Transport                    Thermoelectric Effects
+  29  Magnetism                    Dia- & Paramagnetism
+  30  Magnetism                    Ferromagnetism (mean field)
+  31  Magnetism                    Heisenberg Model (spin waves)
+  32  Magnetism                    Ising Model (1D/2D Monte Carlo)
+  33  Magnetism                    Antiferromagnetism
+  34  Magnetism                    Ferrimagnetism
+  35  Magnetism                    Magnetic Domains & Hysteresis
+  36  Magnetism                    Spin-Orbit Coupling (Rashba/Dresselhaus)
+  37  Superconductivity            BCS Theory
+  38  Superconductivity            Ginzburg-Landau Theory
+  39  Superconductivity            Type I & II Superconductors
+  40  Superconductivity            Josephson Effect
+  41  Advanced Topics              Electron-Phonon Interaction
+  42  Advanced Topics              Anderson Localization
+  43  Advanced Topics              Quantum Hall Effect (Extended)
+  44  Advanced Topics              Topological Insulators (SSH toy model)
+  45  Advanced Topics              Graphene & Dirac Materials
+  46  Advanced Topics              Plasmons & Dielectric Function
+  47  Advanced Topics              Excitons
+  48  Advanced Topics              Polaritons
+  49  Advanced Topics              Amorphous Solids
+  50  Advanced Topics              Mesoscopic Transport (Landauer)
+
+
+4. BUILDING
+--------------------------------------------------------------------------------
+
+Prerequisites:
+  • A C++17-capable compiler (GCC >= 7, Clang >= 5, MSVC >= 2017)
+  • CMake >= 3.15
+  • OpenGL >= 3.3 (driver support)
+  • An internet connection for the first build (FetchContent downloads)
+
+Quick start (Linux/macOS):
+
+    cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+    ./build/SolidStateCore
+
+Quick start (Windows / Visual Studio):
+
+    cmake -B build -G "Visual Studio 17 2022" -A x64
+    cmake --build build --config Release
+    build\Release\SolidStateCore.exe
+
+
+5. GUI WORKFLOW
+--------------------------------------------------------------------------------
+
+  1. The left sidebar lists all 50 simulations.
+  2. Click an entry to display its panel on the right.
+  3. Expand the "Theory: ..." collapsing header for background information.
+  4. Adjust input parameters (lattice constant, temperature range, etc.).
+  5. Press [Compute] to run the calculation.
+     • Plots appear in the embedded ImPlot area.
+     • Numerical results appear below the plot.
+  6. Press [Export CSV] to write a comma-separated file to the working directory.
+
+
+6. PHYSICS ENGINE API
+--------------------------------------------------------------------------------
+
+The physics engine lives in SolidStateSystem (header + source).  Most functions
+are static and can be called without constructing an instance:
+
+    double EF = SolidStateSystem::fermiEnergy(8.5e28, SSConst::me);
+    double Cv = SolidStateSystem::debyeSpecificHeat(300.0, 345.0);
+    auto peaks = SolidStateSystem::computeDiffractionPattern(5.43e-10, 1.54e-10, "FCC", 3);
+
+Instance methods are used when a material context is needed:
+
+    SolidStateSystem sys("Silicon", 5.431e-10, 0.26 * SSConst::me);
+    sys.exportQuantumWellCSV("qw.csv", 10e-9, sys.getEffectiveMass(), 5, 200);
+
+Result types (BandResult, PNJunctionResult, IsingResult, BCSResult, etc.)
+bundle multiple output arrays for convenient plotting and export.
+
+
+7. NUMERICAL SOLVERS
+--------------------------------------------------------------------------------
+
+NumericalSolverSS provides reusable numerical routines:
+
+  • solveBandStructureFDM        — Finite-difference eigenvalue solver for 1D
+                                    periodic or confined potentials.
+  • timeEvolveCrankNicolson      — Implicit time-stepping for the 1D
+                                    time-dependent Schrodinger equation.
+  • makeGaussianWavepacket       — Gaussian initial state generator.
+  • solvePoissonSchrodinger      — Iterative self-consistent loop coupling the
+                                    Schrodinger and Poisson equations.
+  • transferMatrixTransmission   — Transfer matrix method for multi-barrier
+                                    transmission coefficient.
+  • monteCarloIntegrate          — Simple Monte Carlo integration of a 1D
+                                    function.
+
+
+8. C API FOR FFI
+--------------------------------------------------------------------------------
+
+solidstate_c_api.h exposes ~20 physics functions with a plain-C interface.
+Example usage from Python:
+
+    import ctypes
+    lib = ctypes.CDLL("./libSolidStatePhysics.so")
+
+    lib.ss_fermi_energy.restype  = ctypes.c_double
+    lib.ss_fermi_energy.argtypes = [ctypes.c_double, ctypes.c_double]
+    EF = lib.ss_fermi_energy(8.5e28, 9.109e-31)
+
+
+9. PHYSICAL CONSTANTS
+--------------------------------------------------------------------------------
+
+All constants are defined in namespace SSConst (SolidStateConstants.h) and follow
+CODATA 2018 recommended values.  Key entries:
+
+    hbar        1.054571817e-34  J·s
+    e_charge    1.602176634e-19  C
+    me          9.1093837015e-31 kg
+    kB          1.380649e-23     J/K
+    eV          1.602176634e-19  J
+    a0_bohr     5.29177210903e-11 m
+    Ry          13.605693122994  eV
+    muB         9.2740100783e-24 J/T
+
+Reference lattice constants (Si, GaAs, Cu) and semiconductor effective masses
+are also provided.
+
+
+10. CSV EXPORT FORMAT
+--------------------------------------------------------------------------------
+
+Each simulation's "Export CSV" button writes a file in the current working
+directory.  The format is:
+
+    # SolidStateCore — <simulation name>
+    # <parameter summary>
+    column1, column2, ...
+    value1,  value2,  ...
+    ...
+
+Files are plain-text, comma-delimited, and import directly into spreadsheet
+applications, NumPy (numpy.loadtxt), MATLAB (readtable), etc.
+
+
+================================================================================
+  End of documentation
+================================================================================
